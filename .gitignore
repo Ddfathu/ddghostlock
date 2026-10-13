@@ -19,3 +19,6 @@ target/
 /.codex/
 /src/.codex/config.toml
 /ghostlock *
+
+*.apk
+*.zip
