@@ -74,8 +74,10 @@ jobs:
         run: rustup toolchain link ondk "${{ runner.temp }}/ondk/toolchains/rust"
 
       - name: Decode Android signing key
-        if: ${{ secrets.SIGNING_KEY != '' }}
-        run: echo "${{ secrets.SIGNING_KEY }}" | base64 -d > keystore.jks
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        if: env.SIGNING_KEY != ''
+        run: echo "$SIGNING_KEY" | base64 -d > keystore.jks
 
       - name: Build Native binary
         run: |
@@ -87,18 +89,22 @@ jobs:
           fi
 
       - name: Build APK (Release / Debug Fallback)
+        env:
+          KEYSTORE_PASS: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           export ONDK_HOME="${{ runner.temp }}/ondk"
           export ANDROID_NDK_HOME="$ONDK_HOME"
           export NDK_ROOT="$ONDK_HOME"
 
-          if [ -f keystore.jks ] && [ -n "${{ secrets.KEY_STORE_PASSWORD }}" ]; then
+          if [ -f keystore.jks ] && [ -n "$KEYSTORE_PASS" ]; then
             echo "[*] Building Signed Release APK..."
             export KEYSTORE_PATH="../keystore.jks"
-            export KEYSTORE_PASS="${{ secrets.KEY_STORE_PASSWORD }}"
-            export KEY_ALIAS="${{ secrets.ALIAS }}"
-            export KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
+            export KEYSTORE_PASS="$KEYSTORE_PASS"
+            export KEY_ALIAS="$KEY_ALIAS"
+            export KEY_PASSWORD="$KEY_PASSWORD"
             ./gradlew :app:assembleRelease --no-daemon
           else
             echo "[*] No signing key found, building Debug APK..."
@@ -255,7 +261,7 @@ jobs:
     name: Pre-release
     needs: [build-apk, build-extractor-macos, build-extractor-windows]
     runs-on: ubuntu-latest
-    if: ${{ success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.ref_type != 'tag' && secrets.GITHUB_TOKEN != '' }}
+    if: ${{ success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.ref_type != 'tag' }}
     permissions:
       contents: write
     steps:
